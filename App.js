@@ -82,6 +82,7 @@ class App extends Component{
   this.addToBasket = this.addToBasket.bind(this);
   this.deleteToBasket = this.deleteToBasket.bind(this);
   this.clickOnBasket = this.clickOnBasket.bind(this);
+  this.hideBasket = this.hideBasket.bind(this);
   //console.log(windowDimensions)
   //console.log(screenDimensions)
  }
@@ -117,14 +118,16 @@ addToBasket = () =>{
 }
 
 clickOnBasket = () =>{
-  //displayBasket
   this.setState({ displayBasket : true})
-  console.log("clique");
 }
 ////// ATTENTIOON TROUVER UN MOYEN D AVOIR UN ID
 deleteToBasket = (dish) =>{
   this.setState({basket: this.state.basket.filter(item => item.name !== dish.name )
   });
+}
+
+hideBasket = () =>{
+  this.setState({ displayBasket : false})
 }
 
 render() {
@@ -170,14 +173,19 @@ render() {
     {
       this.state.displayBasket ?
       <View style={styles.displayBasket}>
+        <Button title="X" onPress={() => this.hideBasket()} />
         <Text  style={styles.displayDishTitle}  >Panier</Text>
-        { this.state.basket.map((item, index) => (
-          <View key = {index} style={{flexDirection: 'row'}} >
-            <Text>{item.quantity}x {item.name} {item.price}€</Text>
-            <Button title="X" color="red" onPress={() => this.deleteToBasket(item)}  />
-          </View> 
-        ))}
+        {this.state.basket.length === 0 ? <Text>Panier vide</Text> : 
+            this.state.basket.map((item, index) => (
+              <View key = {index} style={{flexDirection: 'row'}} >
+                <Text>{item.quantity}x {item.name} {item.price}€</Text>
+                <Button title="X" color="red" onPress={() => this.deleteToBasket(item)}  />
+              </View> 
+            ))
+        }
+        {this.state.basket.length !== 0 ?
         <Text>Total : {this.state.basket.reduce((a, c) => { return a + parseFloat(c.price) }, 0)} €</Text>
+        : null}
       </View> 
     : null
     }
