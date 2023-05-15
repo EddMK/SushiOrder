@@ -65,9 +65,11 @@ class App extends Component{
           ]
        }
     ],
+    basket : [],
     displayDish : false,
     toDisplay : null,
-    quantity : 1
+    quantity : 1,
+    displayBasket : false
  }
 
  constructor(props){
@@ -78,8 +80,10 @@ class App extends Component{
   this.increaseQuantity = this.increaseQuantity.bind(this);
   this.price = this.price.bind(this);
   this.addToBasket = this.addToBasket.bind(this);
-  console.log(windowDimensions)
-  console.log(screenDimensions)
+  this.deleteToBasket = this.deleteToBasket.bind(this);
+  this.clickOnBasket = this.clickOnBasket.bind(this);
+  //console.log(windowDimensions)
+  //console.log(screenDimensions)
  }
 
 clickOn = (plat) => {
@@ -104,15 +108,29 @@ price = (number) =>{
 }
 
 addToBasket = () =>{
+  var dish = {
+    name : this.state.toDisplay.name,
+    quantity : this.state.quantity,
+    price : this.price(this.state.toDisplay.price*this.state.quantity)
+  }
+  this.setState({ basket: [...this.state.basket, dish], displayDish : false, toDisplay : null, quantity : 1, })
+}
+
+clickOnBasket = () =>{
+  //displayBasket
+  this.setState({ displayBasket : true})
   console.log("clique");
+}
+////// ATTENTIOON TROUVER UN MOYEN D AVOIR UN ID
+deleteToBasket = (dish) =>{
+  this.setState({basket: this.state.basket.filter(item => item.name !== dish.name )
+  });
 }
 
 render() {
   return (
-    <View>
-    <ScrollView style={styles.all}>
-    {
-       this.state.menu.map((item, index) => (
+    <ScrollView style={styles.all} contentContainerStyle={{flexGrow: 1}} >
+      { this.state.menu.map((item, index) => (
           <View key = {item.id} >
             <Text key = {item.id} style={styles.titleCategory}  >
             {'\n'}
@@ -120,7 +138,7 @@ render() {
                 {'\n'}
                 <View style={styles.plat}>
                 {item.plats.map((plat, index) => (
-                  <TouchableOpacity  onPress={() => this.clickOn(plat)}>
+                  <TouchableOpacity key = {plat.id}  onPress={() => this.clickOn(plat)}>
                     <Dish key = {plat.id} info={plat}/>
                   </TouchableOpacity>
                 ))
@@ -130,10 +148,6 @@ render() {
           </View>
        ))    
     }
-      <View  style={styles.basket}>
-        <Text>Panier</Text>
-      </View>
-    </ScrollView>
     {
       this.state.displayDish ?
       <View style={styles.displayDish}>
@@ -150,7 +164,25 @@ render() {
       </View> 
       : null
     }
-    </View>
+      { this.state.basket.length !== 0 ?
+        <Button title="Panier" style={styles.basket}  onPress={() => this.clickOnBasket()} />
+       : null}
+    {
+      this.state.displayBasket ?
+      <View style={styles.displayBasket}>
+        <Text  style={styles.displayDishTitle}  >Panier</Text>
+        { this.state.basket.map((item, index) => (
+          <View key = {index} style={{flexDirection: 'row'}} >
+            <Text>{item.quantity}x {item.name} {item.price}€</Text>
+            <Button title="X" color="red" onPress={() => this.deleteToBasket(item)}  />
+          </View> 
+        ))}
+        <Text>Total : {this.state.basket.reduce((a, c) => { return a + parseFloat(c.price) }, 0)} €</Text>
+      </View> 
+    : null
+    }
+    </ScrollView>
+    
   );
 }
 };
@@ -173,8 +205,7 @@ function Dish({info}){
 export default App;
 const styles = StyleSheet.create({
  all:{
-  paddingTop : 40,
-  backgroundColor : 'lightgray'
+  
  },
  dish:{
   paddingVertical:10,
@@ -237,8 +268,18 @@ const styles = StyleSheet.create({
   color:'midnightblue'
  },
  basket:{
-  position: 'absolute',
-  top : screenDimensions.height*0.9
+  height : '10%',
+  backgroundColor: 'lightblue',
+  textAlign: 'center'
+ },
+ displayBasket : {
+  backgroundColor: 'white', 
+  position: 'absolute', 
+  top: 30, 
+  left: 0, 
+  width : '100%',
+  height : '100%',
+  zIndex: 1
  }
 });
 
