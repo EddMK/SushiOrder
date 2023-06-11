@@ -1,11 +1,9 @@
 import React, {Component} from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Alert, StyleSheet,Button, Text, View, Image, ScrollView, TouchableOpacity,Dimensions, TextInput, useWindowDimensions } from 'react-native';
+import { Animated, PanResponder, Alert,Pressable, Modal, StyleSheet,Button, Text, View, Image, ScrollView, TouchableOpacity,Dimensions, TextInput, useWindowDimensions } from 'react-native';
 import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 
-const windowDimensions = Dimensions.get('window');
-const screenDimensions = Dimensions.get('screen');
 //const Stack = createNativeStackNavigator();
 class App extends Component{
   state = {
@@ -69,7 +67,7 @@ class App extends Component{
     displayDish : false,
     toDisplay : null,
     quantity : 1,
-    displayBasket : false
+    displayBasket : false,
  }
 
  constructor(props){
@@ -83,15 +81,21 @@ class App extends Component{
   this.deleteToBasket = this.deleteToBasket.bind(this);
   this.clickOnBasket = this.clickOnBasket.bind(this);
   this.hideBasket = this.hideBasket.bind(this);
-  //console.log(windowDimensions)
-  //console.log(screenDimensions)
  }
 
 clickOn = (plat) => {
+  Animated.spring(this.pan, {
+    toValue: {x: 0, y: 0},
+    useNativeDriver: true,
+  }).start();
   this.setState({ displayDish : true, toDisplay : plat})
 }
 
 closeSecondView = () => {
+  Animated.spring(this.pan, {
+    toValue: {x: 0, y: 1000},
+    useNativeDriver: true,
+  }).start();
   this.setState({ displayDish : false, toDisplay : null})
 }
 
@@ -130,67 +134,102 @@ hideBasket = () =>{
   this.setState({ displayBasket : false})
 }
 
+pan = new Animated.ValueXY();
+  panResponder = PanResponder.create({
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderMove: (e, gestureState) => {
+        Animated.event([null, {
+          dx: this.pan.x,
+          dy: this.pan.y,
+        }],{useNativeDriver: false})(e, gestureState);      
+    },
+    onPanResponderRelease: (evt, gestureState) => {
+      //this.pan.extractOffset();
+      if( JSON.parse(JSON.stringify(this.pan.y)) > 200){
+        this.closeSecondView();
+      }
+    },
+  });
+
 render() {
   return (
-    <ScrollView style={styles.all} contentContainerStyle={{flexGrow: 1}} >
-      { this.state.menu.map((item, index) => (
-          <View key = {item.id} >
-            <Text key = {item.id} style={styles.titleCategory}  >
-            {'\n'}
-                {item.category}
-                {'\n'}
-                <View style={styles.plat}>
-                {item.plats.map((plat, index) => (
-                  <TouchableOpacity key = {plat.id}  onPress={() => this.clickOn(plat)}>
-                    <Dish key = {plat.id} info={plat}/>
-                  </TouchableOpacity>
-                ))
-                }
-                </View>
-            </Text>
+    <View style={styles.all} >
+      <ScrollView contentContainerStyle={{flexGrow: 1}} >
+        { this.state.menu.map((item, index) => (
+            <View key = {item.id} >
+              <Text key = {item.id} style={styles.titleCategory}  >
+              {'\n'}
+                  {item.category}
+                  {'\n'}
+                  <View style={styles.plat}>
+                  {item.plats.map((plat, index) => (
+                    <TouchableOpacity key = {plat.id}  onPress={() => this.clickOn(plat)}>
+                      <Dish key = {plat.id} info={plat}/>
+                    </TouchableOpacity>
+                  ))
+                  }
+                  </View>
+              </Text>
+            </View>
+        ))    
+      }
+          <Modal
+            animationType="slide"
+            transparent={true}
+            visible={this.state.displayBasket}
+            onRequestClose={() => {
+              Alert.alert('Modal has been closed.');
+              this.setState({displayBasket: !displayBasket});
+            }}>
+                <View style={styles.displayBasket}>
+                  <Button title="X" onPress={() => this.hideBasket()} />
+                  <Text  style={styles.displayDishTitle}  >Panier</Text>
+                  {this.state.basket.length === 0 ? <Text>Panier vide</Text> : 
+                      this.state.basket.map((item, index) => (
+                        <View key = {index} style={{flexDirection: 'row'}} >
+                          <Text>{item.quantity}x {item.name} {item.price}€</Text>
+                          <Button title="X" color="red" onPress={() => this.deleteToBasket(item)}  />
+                        </View> 
+                      ))
+                  }
+                  {this.state.basket.length !== 0 ?
+                  <Text>Total : {this.state.basket.reduce((a, c) => { return a + parseFloat(c.price) }, 0)} €</Text>
+                  : null}
+            </View> 
+          </Modal>
+      </ScrollView>
+      {this.state.displayDish ? 
+          <View style={{position: 'absolute', top: 0, right: 0, bottom: 0, left: 0}}>
+            <Animated.View style={{
+            transform: [{translateY: this.pan.y}] ,
+            backgroundColor: 'white', 
+            position: 'absolute', 
+            top: 0, 
+            left: 0, 
+            width : '100%',
+            height : '100%',
+            zIndex: 1,
+          }}  {...this.panResponder.panHandlers}>
+            
+              <Button  title="X"  onPress={this.closeSecondView} />
+              <Image source={require('./images/picture.jpg')} style={{width: '100%', height: '20%'}} />
+              <Text  style={styles.displayDishTitle} >{this.state.toDisplay === null ? "" : this.state.toDisplay.name }</Text>
+              <Text  style={styles.displayDishDescription}>{this.state.toDisplay === null ? "" : this.state.toDisplay.description }</Text>
+              <View style={styles.quantity}>
+                <Button  title="-"  onPress={this.decreaseQuantity}  disabled={this.state.quantity===1} />
+                <Text>{this.state.quantity}</Text>
+                <Button  title="+"  onPress={this.increaseQuantity} />
+              </View> 
+              {this.state.toDisplay === null ? "" :
+                <Button  title={"Total "+  this.price(this.state.toDisplay.price*this.state.quantity)+" €"} onPress={this.addToBasket}   />
+              }
+            </Animated.View>
           </View>
-       ))    
-    }
-    {
-      this.state.displayDish ?
-      <View style={styles.displayDish}>
-        <Button  title="X"  onPress={this.closeSecondView} />
-        <Image source={require('./images/picture.jpg')} style={{width: '100%', height: '20%'}} />
-        <Text  style={styles.displayDishTitle} >{this.state.toDisplay.name}</Text>
-        <Text  style={styles.displayDishDescription}>{this.state.toDisplay.description}</Text>
-        <View style={styles.quantity}>
-          <Button  title="-"  onPress={this.decreaseQuantity}  disabled={this.state.quantity===1} />
-          <Text>{this.state.quantity}</Text>
-          <Button  title="+"  onPress={this.increaseQuantity} />
-        </View> 
-        <Button  title={"Total "+ this.price(this.state.toDisplay.price*this.state.quantity)+" €"} onPress={this.addToBasket}   />
-      </View> 
-      : null
-    }
+          : null}
       { this.state.basket.length !== 0 ?
         <Button title="Panier" style={styles.basket}  onPress={() => this.clickOnBasket()} />
-       : null}
-    {
-      this.state.displayBasket ?
-      <View style={styles.displayBasket}>
-        <Button title="X" onPress={() => this.hideBasket()} />
-        <Text  style={styles.displayDishTitle}  >Panier</Text>
-        {this.state.basket.length === 0 ? <Text>Panier vide</Text> : 
-            this.state.basket.map((item, index) => (
-              <View key = {index} style={{flexDirection: 'row'}} >
-                <Text>{item.quantity}x {item.name} {item.price}€</Text>
-                <Button title="X" color="red" onPress={() => this.deleteToBasket(item)}  />
-              </View> 
-            ))
-        }
-        {this.state.basket.length !== 0 ?
-        <Text>Total : {this.state.basket.reduce((a, c) => { return a + parseFloat(c.price) }, 0)} €</Text>
-        : null}
-      </View> 
-    : null
-    }
-    </ScrollView>
-    
+      : null}
+    </View>
   );
 }
 };
@@ -213,7 +252,7 @@ function Dish({info}){
 export default App;
 const styles = StyleSheet.create({
  all:{
-  
+  flex: 1
  },
  dish:{
   paddingVertical:10,
@@ -251,11 +290,12 @@ const styles = StyleSheet.create({
  displayDish:{
   backgroundColor: 'white', 
   position: 'absolute', 
-  top: 30, 
+  top: 100, 
   left: 0, 
   width : '100%',
   height : '100%',
-  zIndex: 1
+  zIndex: 1,
+  
  },
  quantity:{
   flexDirection: 'row',
@@ -278,7 +318,8 @@ const styles = StyleSheet.create({
  basket:{
   height : '10%',
   backgroundColor: 'lightblue',
-  textAlign: 'center'
+  textAlign: 'center',
+  paddingBottom : 5,
  },
  displayBasket : {
   backgroundColor: 'white', 
@@ -291,43 +332,45 @@ const styles = StyleSheet.create({
  }
 });
 
- 
 /*
 
-const HomeScreen = ({navigation}) => {
-  return (
-    <Button
-      title="Go to Jane's profile"
-      onPress={() =>
-        navigation.navigate('Profile', {name: 'Jane'})
-      }
-    />
-  );
-};
-const ProfileScreen = ({navigation, route}) => {
-  return <Text>This is {route.params.name}'s profile</Text>;
-};
+<Modal
+            animationType="slide"
+            transparent={true}
+            visible={this.state.displayDish}
+            onRequestClose={() => {
+              Alert.alert('Modal has been closed.');
+              this.setState({displayDish: !displayDish});
+            }}
+            >
+            <View style={styles.displayDish}
+                  onStartShouldSetResponder={() => true}
+                  onResponderMove={(event) => {
+                    console.log(event.nativeEvent.locationX, event.nativeEvent.locationY);
+                  }}
+            >
+              <Button  title="X"  onPress={this.closeSecondView} />
+              <Image source={require('./images/picture.jpg')} style={{width: '100%', height: '20%'}} />
+              <Text  style={styles.displayDishTitle} >{this.state.toDisplay === null ? "" : this.state.toDisplay.name }</Text>
+              <Text  style={styles.displayDishDescription}>{this.state.toDisplay === null ? "" : this.state.toDisplay.description }</Text>
+              <View style={styles.quantity}>
+                <Button  title="-"  onPress={this.decreaseQuantity}  disabled={this.state.quantity===1} />
+                <Text>{this.state.quantity}</Text>
+                <Button  title="+"  onPress={this.increaseQuantity} />
+              </View> 
+              {this.state.toDisplay === null ? "" :
+                <Button  title={"Total "+  this.price(this.state.toDisplay.price*this.state.quantity)+" €"} onPress={this.addToBasket}   />
+              }
+            </View>
+          </Modal>
 
-
-<TouchableOpacity
-             key = {item.id}
-             style = {styles.container}
-             onPress = {() => this.alertItemName(item)}>
-             <Text style = {styles.text}>
-                {item.category}
-             </Text>
-          </TouchableOpacity>
 */
 
 /*
-<NavigationContainer> 
-      <Stack.Navigator>
-        <Stack.Screen
-          name="Home"
-          component={HomeScreen}
-          options={{title: 'Welcome'}}
-        />
-        <Stack.Screen name="Profile" component={ProfileScreen} />
-      </Stack.Navigator>
-    </NavigationContainer>
+
+onStartShouldSetResponder={() => true}
+                onResponderMove={(event) => {
+                  console.log(event.nativeEvent.locationX, event.nativeEvent.locationY);
+                }}
+
 */
